@@ -436,11 +436,11 @@
   <notepads>
   </notepads>
   <connection>
-    <name>ds_huida</name>
+    <name>ds_demo</name>
     <server/>
     <type>ORACLE</type>
     <access>JNDI</access>
-    <database>ds_huida</database>
+    <database>ds_demo</database>
     <port>1521</port>
     <username/>
     <password>Encrypted </password>
@@ -492,28 +492,18 @@
   </connection>
   <order>
     <hop>
-      <from>表输入</from>
-      <to>Java 代码</to>
+      <from>统计不一致记录</from>
+      <to>汇总结果</to>
       <enabled>Y</enabled>
     </hop>
     <hop>
-      <from>拼接报警信息</from>
-      <to>未发现文件报警</to>
-      <enabled>Y</enabled>
-    </hop>
-    <hop>
-      <from>Java 代码</from>
-      <to>拼接报警信息</to>
-      <enabled>Y</enabled>
-    </hop>
-    <hop>
-      <from>获取全局变量</from>
-      <to>表输入</to>
+      <from>汇总结果</from>
+      <to>报告异常结果</to>
       <enabled>Y</enabled>
     </hop>
   </order>
   <step>
-    <name>Java 代码</name>
+    <name>汇总结果</name>
     <type>UserDefinedJavaClass</type>
     <description/>
     <distribute>Y</distribute>
@@ -560,13 +550,13 @@ public boolean processRow(StepMetaInterface smi, StepDataInterface sdi) throws K
                 break;
             case "3":
                 //渠道含有
-                result="保险公司多出的交易数量为："+total+"条";
+                result="公司多出的交易数量为："+total+"条";
                 break;
             default:
                 break;
         }
 		get(Fields.Out, "result").setValue(r, result);
-		//(5)输出到下一个节点做处理
+		//输出到下一个节点做处理
     	putRow(data.outputRowMeta, r);
 		return true;
 }
@@ -600,8 +590,8 @@ public boolean processRow(StepMetaInterface smi, StepDataInterface sdi) throws K
     </GUI>
   </step>
   <step>
-    <name>拼接报警信息</name>
-    <type>ScriptValueMod</type>
+    <name>报告异常结果</name>
+    <type>WriteToLog</type>
     <description/>
     <distribute>Y</distribute>
     <custom_distribution/>
@@ -610,46 +600,14 @@ public boolean processRow(StepMetaInterface smi, StepDataInterface sdi) throws K
       <method>none</method>
       <schema_name/>
     </partitioning>
-    <compatible>N</compatible>
-    <optimizationLevel>9</optimizationLevel>
-    <jsScripts>
-      <jsScript>
-        <jsScript_type>0</jsScript_type>
-        <jsScript_name>Script 1</jsScript_name>
-        <jsScript_script>//Script here
-
-//var body = '{"msgtype": "text", "text": {"content": "kettle日息同步-未找到渠道{'+channelCode+'}对应的资产文件"}}';
-//var body = '{"msgtype": "text", "text": {"content": "kettle日息同步-{'+fileReg+'}下无对应的资产文件"}}';
-
-Date.prototype.Format = function (fmt) { //author: meizz 
-    var o = {
-        "M+": this.getMonth() + 1, //月份 
-        "d+": this.getDate(), //日 
-        "h+": this.getHours(), //小时 
-        "m+": this.getMinutes(), //分 
-        "s+": this.getSeconds(), //秒 
-        "q+": Math.floor((this.getMonth() + 3) / 3), //季度 
-        "S": this.getMilliseconds() //毫秒 
-    };
-    if (/(y+)/.test(fmt)) fmt = fmt.replace(RegExp.$1, (this.getFullYear() + "").substr(4 - RegExp.$1.length));
-    for (var k in o)
-    if (new RegExp("(" + k + ")").test(fmt)) fmt = fmt.replace(RegExp.$1, (RegExp.$1.length == 1) ? (o[k]) : (("00" + o[k]).substr(("" + o[k]).length)));
-    return fmt;
-}
- 
-var now=new Date(new Date().getTime()-0*24*60*60*1000).Format("yyyy-MM-dd hh:mm:ss");
-var body = '{"msgtype": "text", "text": {"content": "kettle京东金融承保账单核对-{'+result+'}\n报警时间：'+now+'"}}';
-</jsScript_script>
-      </jsScript>
-    </jsScripts>
+    <loglevel>log_level_basic</loglevel>
+    <displayHeader>Y</displayHeader>
+    <limitRows>N</limitRows>
+    <limitRowsNumber>0</limitRowsNumber>
+    <logmessage>汇总对账信息</logmessage>
     <fields>
       <field>
-        <name>body</name>
-        <rename>body</rename>
-        <type>String</type>
-        <length>-1</length>
-        <precision>-1</precision>
-        <replace>N</replace>
+        <name>result</name>
       </field>
     </fields>
     <attributes/>
@@ -661,104 +619,13 @@ var body = '{"msgtype": "text", "text": {"content": "kettle京东金融承保账
       </output>
     </remotesteps>
     <GUI>
-      <xloc>512</xloc>
+      <xloc>624</xloc>
       <yloc>128</yloc>
       <draw>Y</draw>
     </GUI>
   </step>
   <step>
-    <name>未发现文件报警</name>
-    <type>Rest</type>
-    <description/>
-    <distribute>Y</distribute>
-    <custom_distribution/>
-    <copies>1</copies>
-    <partitioning>
-      <method>none</method>
-      <schema_name/>
-    </partitioning>
-    <applicationType>JSON</applicationType>
-    <method>POST</method>
-    <url>${chatBotUrl}</url>
-    <urlInField>N</urlInField>
-    <dynamicMethod>N</dynamicMethod>
-    <methodFieldName/>
-    <urlField/>
-    <bodyField>body</bodyField>
-    <httpLogin/>
-    <httpPassword>Encrypted </httpPassword>
-    <proxyHost/>
-    <proxyPort/>
-    <preemptive>N</preemptive>
-    <trustStoreFile/>
-    <trustStorePassword>Encrypted </trustStorePassword>
-    <headers>
-      </headers>
-    <parameters>
-      </parameters>
-    <matrixParameters>
-      </matrixParameters>
-    <result>
-      <name>result</name>
-      <code/>
-      <response_time/>
-      <response_header/>
-    </result>
-    <attributes/>
-    <cluster_schema/>
-    <remotesteps>
-      <input>
-      </input>
-      <output>
-      </output>
-    </remotesteps>
-    <GUI>
-      <xloc>656</xloc>
-      <yloc>128</yloc>
-      <draw>Y</draw>
-    </GUI>
-  </step>
-  <step>
-    <name>获取全局变量</name>
-    <type>GetVariable</type>
-    <description/>
-    <distribute>Y</distribute>
-    <custom_distribution/>
-    <copies>1</copies>
-    <partitioning>
-      <method>none</method>
-      <schema_name/>
-    </partitioning>
-    <fields>
-      <field>
-        <name>chatBotUrl</name>
-        <variable>${chatBotUrl}</variable>
-        <type>String</type>
-        <format/>
-        <currency/>
-        <decimal/>
-        <group/>
-        <length>-1</length>
-        <precision>-1</precision>
-        <trim_type>none</trim_type>
-      </field>
-    </fields>
-    <attributes/>
-    <cluster_schema/>
-    <remotesteps>
-      <input>
-      </input>
-      <output>
-      </output>
-    </remotesteps>
-    <GUI>
-      <xloc>51</xloc>
-      <yloc>122</yloc>
-      <draw>Y</draw>
-    </GUI>
-  </step>
-  <step>
-    <name>表输入</name>
+    <name>统计不一致记录</name>
     <type>TableInput</type>
     <description/>
     <distribute>Y</distribute>
@@ -768,7 +635,7 @@ var body = '{"msgtype": "text", "text": {"content": "kettle京东金融承保账
       <method>none</method>
       <schema_name/>
     </partitioning>
-    <connection>ds_huida</connection>
+    <connection>ds_demo</connection>
     <sql>select 
 verify_status
 ,COUNT(verify_id) AS total
@@ -778,7 +645,7 @@ where
 channel_code='${channelCode}' 
 and is_del=0
 and to_days(created_time) = to_days(now())
-and secur_type='0'
+and secur_type='${tradeType}'
 group by verify_status</sql>
     <limit>0</limit>
     <lookup/>
@@ -794,8 +661,8 @@ group by verify_status</sql>
       </output>
     </remotesteps>
     <GUI>
-      <xloc>224</xloc>
-      <yloc>160</yloc>
+      <xloc>128</xloc>
+      <yloc>128</yloc>
       <draw>Y</draw>
     </GUI>
   </step>

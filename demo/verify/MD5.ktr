@@ -505,7 +505,7 @@ public boolean processRow(StepMetaInterface smi, StepDataInterface sdi) throws K
         fis = new FileInputStream(file);
         byte[] csvFileNameBytes  = IOUtils.toByteArray(fis);
         md5code = DigestUtils.md5Hex(ArrayUtils.addAll(key.getBytes(), csvFileNameBytes));
-        //logBasic(">>>>>MD5："+md5code);
+        logBasic(">>>>>MD5："+md5code);
         //读取渠道验签
         channelfis = new FileInputStream(channelfile);
         byte[]bytes=new byte[1024];

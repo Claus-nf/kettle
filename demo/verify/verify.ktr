@@ -436,11 +436,11 @@
   <notepads>
   </notepads>
   <connection>
-    <name>ds_huida</name>
+    <name>ds_demo</name>
     <server/>
     <type>MYSQL</type>
     <access>JNDI</access>
-    <database>ds_huida</database>
+    <database>ds_demo</database>
     <port>1521</port>
     <username/>
     <password>Encrypted </password>
@@ -527,11 +527,6 @@
       <enabled>Y</enabled>
     </hop>
     <hop>
-      <from>读取csv文件</from>
-      <to>处理单位-渠道</to>
-      <enabled>Y</enabled>
-    </hop>
-    <hop>
       <from>过滤对账一致记录</from>
       <to>写日志</to>
       <enabled>Y</enabled>
@@ -546,35 +541,34 @@
       <to>过滤对账一致记录</to>
       <enabled>Y</enabled>
     </hop>
+    <hop>
+      <from>京东退保数据</from>
+      <to>处理单位-渠道</to>
+      <enabled>Y</enabled>
+    </hop>
   </order>
   <step>
-    <name>排序-渠道侧数据</name>
-    <type>SortRows</type>
+    <name>京东退保数据</name>
+    <type>TableInput</type>
     <description/>
-    <distribute>N</distribute>
+    <distribute>Y</distribute>
     <custom_distribution/>
     <copies>1</copies>
     <partitioning>
       <method>none</method>
       <schema_name/>
     </partitioning>
-    <directory>%%java.io.tmpdir%%</directory>
-    <prefix>out</prefix>
-    <sort_size>1000000</sort_size>
-    <free_memory/>
-    <compress>N</compress>
-    <compress_variable/>
-    <unique_rows>N</unique_rows>
-    <fields>
-      <field>
-        <name>policyNo</name>
-        <ascending>Y</ascending>
-        <case_sensitive>N</case_sensitive>
-        <collator_enabled>N</collator_enabled>
-        <collator_strength>0</collator_strength>
-        <presorted>N</presorted>
-      </field>
-    </fields>
+    <connection>ds_demo</connection>
+    <sql>select 
+policy_no AS policyNo,channel_apply_no AS refundNo,amount,confirm_time AS refundTime
+from t_channel_verify 
+where 
+channel_code='${channelCode}' and secur_type = '${tradeType}' and to_days(created_time) = to_days(now());</sql>
+    <limit>0</limit>
+    <lookup/>
+    <execute_each_row>N</execute_each_row>
+    <variables_active>Y</variables_active>
+    <lazy_conversion_active>N</lazy_conversion_active>
     <attributes/>
     <cluster_schema/>
     <remotesteps>
@@ -584,7 +578,7 @@
       </output>
     </remotesteps>
     <GUI>
-      <xloc>208</xloc>
+      <xloc>32</xloc>
       <yloc>80</yloc>
       <draw>Y</draw>
     </GUI>
@@ -600,16 +594,15 @@
       <method>none</method>
       <schema_name/>
     </partitioning>
-    <connection>ds_huida</connection>
+    <connection>ds_demo</connection>
     <sql>select 
-record.policy_no AS policyNo,apply.channel_apply_no AS refundNo,record.available_money AS amount,apply.create_time AS refundTime 
-from t_channel_refund_record AS record
-LEFT JOIN t_cpy_secur_apply AS apply on record.refund_proposal_no=apply.apply_proposal_no
+policy_no AS policyNo,channel_apply_no AS refundNo, amount,pay_success_time AS refundTime
+from t_cpy_secur_apply 
 where 
-record.channel_code='${channelCode}' 
-and record.synch_status='2'
-and record.is_del = 0 
-and TO_DAYS( NOW( ) ) - TO_DAYS(apply.create_time) = 1</sql>
+channel_code='${channelCode}' 
+and trade_status='2'
+and secur_type='${tradeType}'
+and pay_success_time between '${STARTDATE}' and '${ENDDATE}'</sql>
     <limit>0</limit>
     <lookup/>
     <execute_each_row>N</execute_each_row>
@@ -624,37 +617,51 @@ and TO_DAYS( NOW( ) ) - TO_DAYS(apply.create_time) = 1</sql>
       </output>
     </remotesteps>
     <GUI>
-      <xloc>0</xloc>
+      <xloc>32</xloc>
       <yloc>240</yloc>
       <draw>Y</draw>
     </GUI>
   </step>
   <step>
-    <name>排序-公司数据</name>
-    <type>SortRows</type>
+    <name>写日志</name>
+    <type>WriteToLog</type>
     <description/>
-    <distribute>N</distribute>
+    <distribute>Y</distribute>
     <custom_distribution/>
     <copies>1</copies>
     <partitioning>
       <method>none</method>
       <schema_name/>
     </partitioning>
-    <directory>%%java.io.tmpdir%%</directory>
-    <prefix>out</prefix>
-    <sort_size>1000000</sort_size>
-    <free_memory/>
-    <compress>N</compress>
-    <compress_variable/>
-    <unique_rows>N</unique_rows>
+    <loglevel>log_level_basic</loglevel>
+    <displayHeader>Y</displayHeader>
+    <limitRows>N</limitRows>
+    <limitRowsNumber>0</limitRowsNumber>
+    <logmessage>不一致记录</logmessage>
     <fields>
       <field>
         <name>policyNo</name>
-        <ascending>Y</ascending>
-        <case_sensitive>N</case_sensitive>
-        <collator_enabled>N</collator_enabled>
-        <collator_strength>0</collator_strength>
-        <presorted>N</presorted>
+      </field>
+      <field>
+        <name>refundNo</name>
+      </field>
+      <field>
+        <name>amount</name>
+      </field>
+      <field>
+        <name>refundTime</name>
+      </field>
+      <field>
+        <name>flagfield</name>
+      </field>
+      <field>
+        <name>flag</name>
+      </field>
+      <field>
+        <name>channelCode</name>
+      </field>
+      <field>
+        <name>tradeType</name>
       </field>
     </fields>
     <attributes/>
@@ -666,7 +673,103 @@ and TO_DAYS( NOW( ) ) - TO_DAYS(apply.create_time) = 1</sql>
       </output>
     </remotesteps>
     <GUI>
-      <xloc>208</xloc>
+      <xloc>800</xloc>
+      <yloc>160</yloc>
+      <draw>Y</draw>
+    </GUI>
+  </step>
+  <step>
+    <name>处理单位-公司</name>
+    <type>SelectValues</type>
+    <description/>
+    <distribute>Y</distribute>
+    <custom_distribution/>
+    <copies>1</copies>
+    <partitioning>
+      <method>none</method>
+      <schema_name/>
+    </partitioning>
+    <fields>
+      <select_unspecified>N</select_unspecified>
+      <meta>
+        <name>policyNo</name>
+        <rename>policyNo</rename>
+        <type>String</type>
+        <length>64</length>
+        <precision>-2</precision>
+        <conversion_mask/>
+        <date_format_lenient>false</date_format_lenient>
+        <date_format_locale/>
+        <date_format_timezone/>
+        <lenient_string_to_number>false</lenient_string_to_number>
+        <encoding/>
+        <decimal_symbol/>
+        <grouping_symbol/>
+        <currency_symbol/>
+        <storage_type/>
+      </meta>
+      <meta>
+        <name>refundNo</name>
+        <rename>refundNo</rename>
+        <type>String</type>
+        <length>100</length>
+        <precision>-2</precision>
+        <conversion_mask/>
+        <date_format_lenient>false</date_format_lenient>
+        <date_format_locale/>
+        <date_format_timezone/>
+        <lenient_string_to_number>false</lenient_string_to_number>
+        <encoding/>
+        <decimal_symbol/>
+        <grouping_symbol/>
+        <currency_symbol/>
+        <storage_type/>
+      </meta>
+      <meta>
+        <name>amount</name>
+        <rename>amount</rename>
+        <type>BigNumber</type>
+        <length>25</length>
+        <precision>4</precision>
+        <conversion_mask/>
+        <date_format_lenient>false</date_format_lenient>
+        <date_format_locale/>
+        <date_format_timezone/>
+        <lenient_string_to_number>false</lenient_string_to_number>
+        <encoding/>
+        <decimal_symbol/>
+        <grouping_symbol/>
+        <currency_symbol/>
+        <storage_type/>
+      </meta>
+      <meta>
+        <name>refundTime</name>
+        <rename>refundTime</rename>
+        <type>String</type>
+        <length>0</length>
+        <precision>-2</precision>
+        <conversion_mask/>
+        <date_format_lenient>false</date_format_lenient>
+        <date_format_locale/>
+        <date_format_timezone/>
+        <lenient_string_to_number>false</lenient_string_to_number>
+        <encoding/>
+        <decimal_symbol/>
+        <grouping_symbol/>
+        <currency_symbol/>
+        <storage_type/>
+      </meta>
+    </fields>
+    <attributes/>
+    <cluster_schema/>
+    <remotesteps>
+      <input>
+      </input>
+      <output>
+      </output>
+    </remotesteps>
+    <GUI>
+      <xloc>128</xloc>
       <yloc>240</yloc>
       <draw>Y</draw>
     </GUI>
@@ -687,7 +790,7 @@ and TO_DAYS( NOW( ) ) - TO_DAYS(apply.create_time) = 1</sql>
       <meta>
         <name>policyNo</name>
         <rename>policyNo</rename>
-        <type>None</type>
+        <type>String</type>
         <length>100</length>
         <precision>-2</precision>
         <conversion_mask/>
@@ -704,7 +807,7 @@ and TO_DAYS( NOW( ) ) - TO_DAYS(apply.create_time) = 1</sql>
       <meta>
         <name>refundNo</name>
         <rename>refundNo</rename>
-        <type>None</type>
+        <type>String</type>
         <length>100</length>
         <precision>-2</precision>
         <conversion_mask/>
@@ -721,7 +824,7 @@ and TO_DAYS( NOW( ) ) - TO_DAYS(apply.create_time) = 1</sql>
       <meta>
         <name>amount</name>
         <rename>amount</rename>
-        <type>None</type>
+        <type>BigNumber</type>
         <length>25</length>
         <precision>4</precision>
         <conversion_mask/>
@@ -738,7 +841,7 @@ and TO_DAYS( NOW( ) ) - TO_DAYS(apply.create_time) = 1</sql>
       <meta>
         <name>refundTime</name>
         <rename>refundTime</rename>
-        <type>None</type>
+        <type>String</type>
         <length>0</length>
         <precision>-2</precision>
         <conversion_mask/>
@@ -762,104 +865,8 @@ and TO_DAYS( NOW( ) ) - TO_DAYS(apply.create_time) = 1</sql>
       </output>
     </remotesteps>
     <GUI>
-      <xloc>96</xloc>
+      <xloc>128</xloc>
       <yloc>80</yloc>
-      <draw>Y</draw>
-    </GUI>
-  </step>
-  <step>
-    <name>处理单位-公司</name>
-    <type>SelectValues</type>
-    <description/>
-    <distribute>Y</distribute>
-    <custom_distribution/>
-    <copies>1</copies>
-    <partitioning>
-      <method>none</method>
-      <schema_name/>
-    </partitioning>
-    <fields>
-      <select_unspecified>N</select_unspecified>
-      <meta>
-        <name>policyNo</name>
-        <rename>policyNo</rename>
-        <type>None</type>
-        <length>64</length>
-        <precision>-2</precision>
-        <conversion_mask/>
-        <date_format_lenient>false</date_format_lenient>
-        <date_format_locale/>
-        <date_format_timezone/>
-        <lenient_string_to_number>false</lenient_string_to_number>
-        <encoding/>
-        <decimal_symbol/>
-        <grouping_symbol/>
-        <currency_symbol/>
-        <storage_type/>
-      </meta>
-      <meta>
-        <name>refundNo</name>
-        <rename>refundNo</rename>
-        <type>None</type>
-        <length>100</length>
-        <precision>-2</precision>
-        <conversion_mask/>
-        <date_format_lenient>false</date_format_lenient>
-        <date_format_locale/>
-        <date_format_timezone/>
-        <lenient_string_to_number>false</lenient_string_to_number>
-        <encoding/>
-        <decimal_symbol/>
-        <grouping_symbol/>
-        <currency_symbol/>
-        <storage_type/>
-      </meta>
-      <meta>
-        <name>amount</name>
-        <rename>amount</rename>
-        <type>None</type>
-        <length>25</length>
-        <precision>4</precision>
-        <conversion_mask/>
-        <date_format_lenient>false</date_format_lenient>
-        <date_format_locale/>
-        <date_format_timezone/>
-        <lenient_string_to_number>false</lenient_string_to_number>
-        <encoding/>
-        <decimal_symbol/>
-        <grouping_symbol/>
-        <currency_symbol/>
-        <storage_type/>
-      </meta>
-      <meta>
-        <name>refundTime</name>
-        <rename>refundTime</rename>
-        <type>None</type>
-        <length>0</length>
-        <precision>-2</precision>
-        <conversion_mask/>
-        <date_format_lenient>false</date_format_lenient>
-        <date_format_locale/>
-        <date_format_timezone/>
-        <lenient_string_to_number>false</lenient_string_to_number>
-        <encoding/>
-        <decimal_symbol/>
-        <grouping_symbol/>
-        <currency_symbol/>
-        <storage_type/>
-      </meta>
-    </fields>
-    <attributes/>
-    <cluster_schema/>
-    <remotesteps>
-      <input>
-      </input>
-      <output>
-      </output>
-    </remotesteps>
-    <GUI>
-      <xloc>112</xloc>
-      <yloc>240</yloc>
       <draw>Y</draw>
     </GUI>
   </step>
@@ -1099,6 +1106,90 @@ public boolean processRow(StepMetaInterface smi, StepDataInterface sdi) throws K
     </GUI>
   </step>
   <step>
+    <name>排序-公司数据</name>
+    <type>SortRows</type>
+    <description/>
+    <distribute>N</distribute>
+    <custom_distribution/>
+    <copies>1</copies>
+    <partitioning>
+      <method>none</method>
+      <schema_name/>
+    </partitioning>
+    <directory>%%java.io.tmpdir%%</directory>
+    <prefix>out</prefix>
+    <sort_size>1000000</sort_size>
+    <free_memory/>
+    <compress>N</compress>
+    <compress_variable/>
+    <unique_rows>N</unique_rows>
+    <fields>
+      <field>
+        <name>policyNo</name>
+        <ascending>Y</ascending>
+        <case_sensitive>N</case_sensitive>
+        <collator_enabled>N</collator_enabled>
+        <collator_strength>0</collator_strength>
+        <presorted>N</presorted>
+      </field>
+    </fields>
+    <attributes/>
+    <cluster_schema/>
+    <remotesteps>
+      <input>
+      </input>
+      <output>
+      </output>
+    </remotesteps>
+    <GUI>
+      <xloc>224</xloc>
+      <yloc>240</yloc>
+      <draw>Y</draw>
+    </GUI>
+  </step>
+  <step>
+    <name>排序-渠道侧数据</name>
+    <type>SortRows</type>
+    <description/>
+    <distribute>N</distribute>
+    <custom_distribution/>
+    <copies>1</copies>
+    <partitioning>
+      <method>none</method>
+      <schema_name/>
+    </partitioning>
+    <directory>%%java.io.tmpdir%%</directory>
+    <prefix>out</prefix>
+    <sort_size>1000000</sort_size>
+    <free_memory/>
+    <compress>N</compress>
+    <compress_variable/>
+    <unique_rows>N</unique_rows>
+    <fields>
+      <field>
+        <name>policyNo</name>
+        <ascending>Y</ascending>
+        <case_sensitive>N</case_sensitive>
+        <collator_enabled>N</collator_enabled>
+        <collator_strength>0</collator_strength>
+        <presorted>N</presorted>
+      </field>
+    </fields>
+    <attributes/>
+    <cluster_schema/>
+    <remotesteps>
+      <input>
+      </input>
+      <output>
+      </output>
+    </remotesteps>
+    <GUI>
+      <xloc>224</xloc>
+      <yloc>80</yloc>
+      <draw>Y</draw>
+    </GUI>
+  </step>
+  <step>
     <name>插入对账明细</name>
     <type>InsertUpdate</type>
     <description/>
@@ -1109,7 +1200,7 @@ public boolean processRow(StepMetaInterface smi, StepDataInterface sdi) throws K
       <method>none</method>
       <schema_name/>
     </partitioning>
-    <connection>ds_huida</connection>
+    <connection>ds_demo</connection>
     <commit>100</commit>
     <update_bypassed>N</update_bypassed>
     <lookup>
@@ -1154,12 +1245,17 @@ public boolean processRow(StepMetaInterface smi, StepDataInterface sdi) throws K
       </value>
       <value>
         <name>channel_code</name>
-        <rename>channel_code</rename>
+        <rename>channelCode</rename>
         <update>Y</update>
       </value>
       <value>
         <name>secur_type</name>
-        <rename>secur_type</rename>
+        <rename>tradeType</rename>
+        <update>Y</update>
+      </value>
+      <value>
+        <name>channel_order_no</name>
+        <rename>refundNo</rename>
         <update>Y</update>
       </value>
     </lookup>
@@ -1209,7 +1305,7 @@ public boolean processRow(StepMetaInterface smi, StepDataInterface sdi) throws K
       </output>
     </remotesteps>
     <GUI>
-      <xloc>336</xloc>
+      <xloc>368</xloc>
       <yloc>160</yloc>
       <draw>Y</draw>
     </GUI>
@@ -1254,158 +1350,6 @@ public boolean processRow(StepMetaInterface smi, StepDataInterface sdi) throws K
     </remotesteps>
     <GUI>
       <xloc>672</xloc>
-      <yloc>160</yloc>
-      <draw>Y</draw>
-    </GUI>
-  </step>
-  <step>
-    <name>读取csv文件</name>
-    <type>CsvInput</type>
-    <description/>
-    <distribute>Y</distribute>
-    <custom_distribution/>
-    <copies>1</copies>
-    <partitioning>
-      <method>none</method>
-      <schema_name/>
-    </partitioning>
-    <filename>${fileDir}/${TODAYF}/${tradeType}_${TODAY}.csv</filename>
-    <filename_field/>
-    <rownum_field/>
-    <include_filename>N</include_filename>
-    <separator>,</separator>
-    <enclosure>"</enclosure>
-    <header>Y</header>
-    <buffer_size>50000</buffer_size>
-    <lazy_conversion>Y</lazy_conversion>
-    <add_filename_result>N</add_filename_result>
-    <parallel>N</parallel>
-    <newline_possible>N</newline_possible>
-    <format>mixed</format>
-    <encoding/>
-    <fields>
-      <field>
-        <name>orderId</name>
-        <type>String</type>
-        <format>#.#</format>
-        <currency>￥</currency>
-        <decimal>.</decimal>
-        <group>,</group>
-        <length>15</length>
-        <precision>0</precision>
-        <trim_type>both</trim_type>
-      </field>
-      <field>
-        <name>policyNo</name>
-        <type>String</type>
-        <format>#.#</format>
-        <currency>￥</currency>
-        <decimal>.</decimal>
-        <group>,</group>
-        <length>15</length>
-        <precision>0</precision>
-        <trim_type>both</trim_type>
-      </field>
-      <field>
-        <name>refundNo</name>
-        <type>String</type>
-        <format/>
-        <currency>￥</currency>
-        <decimal>.</decimal>
-        <group>,</group>
-        <length>5</length>
-        <precision>-1</precision>
-        <trim_type>none</trim_type>
-      </field>
-      <field>
-        <name>amount</name>
-        <type>Number</type>
-        <format>#.#</format>
-        <currency>￥</currency>
-        <decimal>.</decimal>
-        <group>,</group>
-        <length>7</length>
-        <precision>1</precision>
-        <trim_type>none</trim_type>
-      </field>
-      <field>
-        <name>refundTime</name>
-        <type>String</type>
-        <format/>
-        <currency>￥</currency>
-        <decimal>.</decimal>
-        <group>,</group>
-        <length>29</length>
-        <precision>-1</precision>
-        <trim_type>none</trim_type>
-      </field>
-    </fields>
-    <attributes/>
-    <cluster_schema/>
-    <remotesteps>
-      <input>
-      </input>
-      <output>
-      </output>
-    </remotesteps>
-    <GUI>
-      <xloc>0</xloc>
-      <yloc>80</yloc>
-      <draw>Y</draw>
-    </GUI>
-  </step>
-  <step>
-    <name>写日志</name>
-    <type>WriteToLog</type>
-    <description/>
-    <distribute>Y</distribute>
-    <custom_distribution/>
-    <copies>1</copies>
-    <partitioning>
-      <method>none</method>
-      <schema_name/>
-    </partitioning>
-    <loglevel>log_level_basic</loglevel>
-    <displayHeader>Y</displayHeader>
-    <limitRows>N</limitRows>
-    <limitRowsNumber>0</limitRowsNumber>
-    <logmessage/>
-    <fields>
-      <field>
-        <name>policyNo</name>
-      </field>
-      <field>
-        <name>refundNo</name>
-      </field>
-      <field>
-        <name>amount</name>
-      </field>
-      <field>
-        <name>refundTime</name>
-      </field>
-      <field>
-        <name>flagfield</name>
-      </field>
-      <field>
-        <name>flag</name>
-      </field>
-      <field>
-        <name>channelCode</name>
-      </field>
-      <field>
-        <name>tradeType</name>
-      </field>
-    </fields>
-    <attributes/>
-    <cluster_schema/>
-    <remotesteps>
-      <input>
-      </input>
-      <output>
-      </output>
-    </remotesteps>
-    <GUI>
-      <xloc>800</xloc>
       <yloc>160</yloc>
       <draw>Y</draw>
     </GUI>
